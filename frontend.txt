@@ -1,0 +1,158 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
+
+// Interfaces for TypeScript
+interface ThreatReport {
+  total_threats: number;
+  threat_sources: string[];
+  unique_threats: number;
+  threat_classifications: { [key: string]: number };
+  threat_details: ThreatDetail[];
+}
+
+interface ThreatDetail {
+  url?: string;
+  ip?: string;
+  source: string;
+  type: string;
+}
+
+const ThreatIntelligenceDashboard: React.FC = () => {
+  const [threatReport, setThreatReport] = useState<ThreatReport | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch threat report data
+  useEffect(() => {
+    const fetchThreatReport = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/threat-report');
+        setThreatReport(response.data);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch threat report');
+        setLoading(false);
+      }
+    };
+
+    fetchThreatReport();
+  }, []);
+
+  // Transform threat classifications for chart
+  const threatClassificationData = threatReport 
+    ? Object.entries(threatReport.threat_classifications).map(([name, value]) => ({ 
+        name, 
+        value 
+      }))
+    : [];
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="animate-spin" size={48} />
+        <p className="ml-2">Loading threat data...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4 max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6 text-center">
+        Threat Intelligence Dashboard
+      </h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Threat Overview Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Threat Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p>Total Threats: {threatReport?.total_threats}</p>
+              <p>Unique Threats: {threatReport?.unique_threats}</p>
+              <p>Sources: {threatReport?.threat_sources.join(', ')}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Threat Classification Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Threat Classifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={threatClassificationData}>
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Threat Details Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Detailed Threat Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-2 border">Source</th>
+                  <th className="p-2 border">Type</th>
+                  <th className="p-2 border">Identifier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {threatReport?.threat_details.map((threat, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="p-2 border">{threat.source}</td>
+                    <td className="p-2 border">{threat.type}</td>
+                    <td className="p-2 border">
+                      {threat.url || threat.ip || 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default ThreatIntelligenceDashboard;
